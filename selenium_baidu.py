@@ -38,7 +38,8 @@ def test():
 
         input.send_keys('蔡徐坤 篮球')
         submit.click()
-        wait = WebDriverWait(browser, 10)
+        #browser.implicit_wait(10) #等10秒，如果解释完页面，就会自动执行下面的，不一定要10秒，此为一个非固定的值
+        #wait = WebDriverWait(browser, 10)  #这个很重要，否则就爬不到内容了
         total = WAIT.until(EC.presence_of_element_located((By.XPATH, '//*[@id="page"]/div/a[9]/span')))
         print(int(total.text))
         print(browser.current_url)
