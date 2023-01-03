@@ -59,18 +59,32 @@ def parse_title_url(url):
     book_name = selector.xpath('/html/body/div[1]/nav/div/div[1]/a/text()')[0]
     print(book_name)
 
-    charpers = selector.xpath('//div[@class="wy-menu wy-menu-vertical"]/descendant::li[@class ="toctree-l1"]')
+    charpers = selector.xpath('//div[@class="wy-menu wy-menu-vertical"]/descendant::li[starts-with(@class,"toctree-l1")]')
+
     for charper in charpers:
         info = {}
 
         # 获取某章节的title及url
         info['title'] = charper.xpath('a/text()')[0]
+
         url = charper.xpath('a/@href')[0]
         if re.search('\.\./', url):
             url = url.replace('../', '')
         else:
+            if '#' in url:
+                continue
             url = 'intro/' + url
         info['url'] = base_url + url
+        info['subnode'] = []
+        #判断是否有子节点
+        subnode_list = charper.xpath('ul/li[starts-with(@class, "toctree-l2")]')
+        for subnode in subnode_list:
+            sub_info = {}
+            if '#' not in subnode.xpath('a/@href')[0]: #有#表示在同一页面，则不需要下了
+                sub_info['title'] = subnode.xpath('a/text()')[0]
+                sub_info['url'] = base_url + subnode.xpath('a/@href')[0]
+                info['subnode'].append(sub_info)
+                print("subnode: {}".format(sub_info))
 
         chapter_info.append(info)
 
@@ -106,7 +120,7 @@ def download_to_pdf(info):
     html = get_content(info['url'])
     save_pdf(html, os.path.join(os.getcwd(), info['title'] + '.pdf'))
     chapter_names.append((info['title'], os.path.join(os.getcwd(), info['title'] + '.pdf')))
-
+    print(info['title'])
 
 def merge_pdf(out_pdf):
     '''
@@ -117,7 +131,7 @@ def merge_pdf(out_pdf):
     '''
     page_num = 0
     pdf_output = PdfWriter()
-
+    print("len {}".format(len(chapter_names)))
     for pdf in chapter_names:
         #先合并一级目录内容
         first_level_title = pdf[0]
@@ -133,29 +147,36 @@ def merge_pdf(out_pdf):
         page_num += page_count
         
         #存在子章节
-        
+
         
     #合并
     pdf_output.write(open(out_pdf, 'wb'))
-    #shutil.rmtree(os.path.join(os.path.dirname(__file__), 'gen'))
 
 
 def main():
-    '''
+
     url = "https://www.osgeo.cn/scrapy/intro/overview.html"
     parse_title_url(url)
-    pool = Pool(processes=5)
-    pool.map(download_to_pdf, chapter_info)
-    print(chapter_names)
-    '''
+
+    #pool = Pool(processes=5)
+    #pool.map(download_to_pdf, chapter_info)
+
+    for chapter in chapter_info:
+        download_to_pdf(chapter)
+        if len(chapter['subnode']) > 0:
+            download_to_pdf(chapter['subnode'])
+    
+
     #将pdf文件
+    '''
     path_list = os.listdir(os.getcwd())
     for file in path_list:
         if file.endswith(".pdf"):
             chapter_names.append((os.path.splitext(file)[0], file))
-
+    '''
     out_file = os.path.join(os.getcwd(), 'gen/scrapy_2.5.pdf')
     print("cur_path: {}".format(out_file))
     merge_pdf(out_file)
+
 if __name__ == '__main__':
     main()
